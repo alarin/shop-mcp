@@ -67,13 +67,15 @@ SHIP_JS = r"""
       const h = await resp.text();
       const d = new DOMParser().parseFromString(h, 'text/html');
       if (resp.status === 439 || /Доступ ограничен/.test(d.title)) { out.push({blocked: true}); break; }
+      // Reserved by another buyer: the Buy button reads "Товар зарезервирован", page state has isReserved:true.
+      const reserved = /isReserved[\\"]*:true/.test(h) || /Товар зарезервирован/.test(h);
       const p = [...d.querySelectorAll('p')].find(e => /^Доставка (в|по) /.test(t(e.textContent)));
-      if (!p) { out.push(null); continue; }
+      if (!p) { out.push({reserved}); continue; }
       const text = t(p.textContent);
       const full = p.querySelector('del');
       const disc = p.querySelector('[data-marker="delivery-item-condition-discount"]');
       const prices = (text.match(/\d[\d ]*(?= ?₽)/g) || []).map(num);
-      r = {text, full: full ? num(full.textContent) : (prices[0] ?? null), wallet: disc ? num(disc.textContent) : null};
+      r = {text, reserved, full: full ? num(full.textContent) : (prices[0] ?? null), wallet: disc ? num(disc.textContent) : null};
     } catch (e) { r = {error: String(e)}; }
     out.push(r);
   }
@@ -144,8 +146,10 @@ def search(query, region="sankt-peterburg", price_min=None, price_max=None,
         tab.close()
     if r["blocked"]:
         return f"Авито показал блокировку или капчу: {r['url']}. Нужно пройти её через Screen Sharing на макмини."
+    # Reserved items can't be bought; only those whose page we fetched for shipping are checked.
+    reserved = [x for x, s in zip(items, ship) if s and s.get("reserved")]
     rows = []
-    for i, (x, s) in enumerate(zip(items, ship)):
+    for i, (x, s) in enumerate((x, s) for x, s in zip(items, ship) if not (s and s.get("reserved"))):
         cell, cheapest = _ship_cell(s)
         price = int(x["price"]) if str(x["price"]).isdigit() else None
         total = price + cheapest if price is not None and cheapest is not None else ""
@@ -153,7 +157,9 @@ def search(query, region="sankt-peterburg", price_min=None, price_max=None,
     head = (f"{r['total'] or len(r['items'])} найдено · {r['url']}\n"
             "ссылки относительно https://www.avito.ru; доставка ₽ — в город из профиля Авито; итого = цена + самая дешёвая доставка\n"
             "#\tцена\tдоставка ₽\tитого\tназвание\tгород\tдоставка\tрейтинг продавца\tкогда\tссылка")
-    return head + "\n" + ("\n".join(rows) if rows else "(пусто)") + (note if shipping else "")
+    if reserved:
+        note += f"\nскрыто зарезервированных: {len(reserved)} ({', '.join(x['url'].rsplit('_', 1)[-1] for x in reserved)})"
+    return head + "\n" + ("\n".join(rows) if rows else "(пусто)") + note
 
 
 def _reveal_address(tab):
@@ -188,6 +194,8 @@ def item(url):
         tab.close()
     price = str(r["price"]).replace("₽", "").strip()
     lines = [f"{r['title']} — {price} ₽"]
+    if (r.get("ship") or {}).get("reserved"):
+        lines.append("⛔ ЗАРЕЗЕРВИРОВАН другим покупателем — сейчас купить нельзя")
     lines += [f"{k}: {v}" for k, v in (("адрес", r["address"]), ("метро", r.get("metro")), ("дата", r["date"].lstrip("· ")),
               ("продавец", f"{r['seller']} {r['seller_rating']}".strip())) if v]
     s = r.get("ship")
