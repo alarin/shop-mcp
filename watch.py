@@ -23,11 +23,12 @@ MAX_TOTAL = 6000
 QUERIES = ["raspberry pi 4", "raspberry pi 5", "orange pi"]
 SEEN = Path(__file__).parent / "logs" / "watch_seen.json"
 
-BOARD = re.compile(r"(raspberry|распберри|малин|rpi|\bpi)\s*(4|5|400|500)\b|orange\s*pi", re.I)
+BOARD = re.compile(r"(raspberry|распберри|малин|rpi|\bpi)\s*(4|5|400|500)(b|\b)"
+                   r"|orange\s*pi\s*(3|4|5|6|800|zero\s*(2w|3))", re.I)
 # Accessories and boards with too little RAM for a desktop (OpenBuilds Control, LinuxCNC).
-SKIP = re.compile(r"корпус|кейс|case|блок питания|бп\b|кулер|радиатор|вентилятор|hat\b|камер|дисплей|экран|монитор|"
-                  r"кабель|адаптер|переходник|плата расширения|ssd|nvme|pico|zero(?!\s*(2w|3))|\bone\b|\bpc\b|lite|"
-                  r"512\s*mb|1\s*(gb|гб)\b|4g-iot|без платы", re.I)
+SKIP = re.compile(r"\bдля\b|корпус|кейс|case|блок питания|бп\b|кулер|радиатор|вентилятор|hat\b|ups|модуль|аксессуар|"
+                  r"камер|дисплей|экран|монитор|кабель|адаптер|переходник|плата расширения|ssd|nvme|"
+                  r"512\s*mb|1([.,]5)?\s*(gb|гб)\b|без платы", re.I)
 
 
 def wanted(title):
