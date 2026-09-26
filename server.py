@@ -4,7 +4,9 @@
 # ///
 """shop MCP: search Avito / Ozon / AliExpress in the logged-in Chrome on the Mac mini.
 
-Run over ssh as a stdio MCP server. Output is compact TSV to keep token use low.
+Run over ssh as a stdio MCP server, or with --http as a streamable HTTP server on
+127.0.0.1:8765 (published through a tunnel, see launchd/local.shop-http.plist).
+Output is compact TSV to keep token use low.
 No tool places orders or pays: Ozon and AliExpress stop at the cart.
 """
 import functools
@@ -151,4 +153,10 @@ def ali_remove_from_cart(cart_id_or_item_id: str) -> str:
 
 
 if __name__ == "__main__":
-    mcp.run()
+    if "--http" in sys.argv:
+        mcp.settings.host = "127.0.0.1"
+        mcp.settings.port = 8765
+        mcp.settings.stateless_http = True
+        mcp.run(transport="streamable-http")
+    else:
+        mcp.run()
