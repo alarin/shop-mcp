@@ -52,6 +52,20 @@ Chrome запущен с отдельным профилем и `--remote-debugg
 
 Лог вызовов пишется в `logs/shop.log`, тела неудачных ответов — в `logs/bodies/`. В них бывают ваши данные со страниц сайтов, поэтому `logs/` в `.gitignore`.
 
+## мониторинг Авито в Telegram
+
+`watch.py` ищет по всей России с Авито Доставкой новые Raspberry Pi 4/5 и Orange Pi 3/4/5/Zero 2W, у которых цена с доставкой не больше 6 000 ₽. Зарезервированные пропускает. Каждое объявление присылает один раз. Запросы и порог цены задаются в начале файла.
+
+1. Создать бота у @BotFather и положить токен в `telegram.json`: `{"token": "..."}`.
+2. Написать боту /start и выполнить `python3 tg.py setup`: скрипт найдёт ваш chat id и пришлёт тестовое сообщение.
+3. Поставить расписание (10:07 и 20:07):
+   ```sh
+   cp launchd/local.shop-watch.plist ~/Library/LaunchAgents/
+   launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/local.shop-watch.plist
+   ```
+
+Проверить без отправки: `uv run --script watch.py --print`.
+
 ## ограничения
 
 - Сайты меняют вёрстку и API, и тогда разбор ломается.

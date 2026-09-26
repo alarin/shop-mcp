@@ -1,8 +1,8 @@
 """Avito watch: new single-board computers under a total price, reserved ones skipped.
 
-Run by launchd on the Mac mini: `uv run --script watch.py`. Prints new listings
-(price + cheapest delivery <= MAX_TOTAL) and remembers them in logs/watch_seen.json,
-so each listing is reported once.
+Run by launchd on the Mac mini (local.shop-watch, 10:00 and 20:00): `uv run --script watch.py`.
+Sends new listings (price + cheapest delivery <= MAX_TOTAL) to Telegram (see tg.py) and remembers
+them in logs/watch_seen.json, so each listing is reported once. --print prints instead of sending.
 """
 # /// script
 # requires-python = ">=3.11"
@@ -18,6 +18,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 import avito  # noqa: E402
 from cdp import tab_for  # noqa: E402
 from shoplog import log  # noqa: E402
+import html  # noqa: E402
+import tg  # noqa: E402
 
 MAX_TOTAL = 6000
 QUERIES = ["raspberry pi 4", "raspberry pi 5", "orange pi"]
@@ -66,12 +68,27 @@ def main():
         price = int(x["price"]) if str(x["price"]).isdigit() else None
         if price is None or cheapest is None or price + cheapest > MAX_TOTAL:
             continue
-        new.append(f"{price + cheapest} ₽ ({price} + доставка {cheapest}) · {x['title']} · {x['city']}\n{x['url']}")
+        new.append(f"<b>{price + cheapest} ₽</b> ({price} + доставка {cheapest}) · "
+                   f"<a href=\"{x['url']}\">{html.escape(x['title'])}</a> · {x['city']}")
     SEEN.parent.mkdir(exist_ok=True)
     SEEN.write_text(json.dumps(sorted(seen)))
     log.info("watch: %d matching, %d not seen before, %d new under %d ₽", len(found), len(fresh), len(new), MAX_TOTAL)
-    print("\n\n".join(new))
+    return new
+
+
+def notify(text):
+    if "--print" in sys.argv or not tg.CONF.exists():
+        print(text)
+    else:
+        tg.send(text)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        new = main()
+    except Exception as e:
+        log.exception("watch failed")
+        notify(f"⚠️ Мониторинг Авито упал: {html.escape(str(e))[:500]}")
+        raise
+    if new:
+        notify(f"Новые платы на Авито до {MAX_TOTAL} ₽ с доставкой, без резерва:\n\n" + "\n\n".join(new))

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>local.shop-watch</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string><string>-c</string>
+    <string>export PATH=/opt/homebrew/bin:$PATH; exec uv run --quiet --script "$HOME/shop-mcp/watch.py"</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict><key>Hour</key><integer>10</integer><key>Minute</key><integer>7</integer></dict>
+    <dict><key>Hour</key><integer>20</integer><key>Minute</key><integer>7</integer></dict>
+  </array>
+</dict>
+</plist>
