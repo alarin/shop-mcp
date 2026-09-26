@@ -69,13 +69,15 @@ SHIP_JS = r"""
       if (resp.status === 439 || /Доступ ограничен/.test(d.title)) { out.push({blocked: true}); break; }
       // Reserved by another buyer: the Buy button reads "Товар зарезервирован", page state has isReserved:true.
       const reserved = /isReserved[\\"]*:true/.test(h) || /Товар зарезервирован/.test(h);
+      const desc = t(d.querySelector('[data-marker="item-view/item-description"]')?.textContent);
+      const broken = /не работа|не запуска|не включа|не грузит|не загружа|на запчаст|как есть|неисправ/i.test(desc);
       const p = [...d.querySelectorAll('p')].find(e => /^Доставка (в|по) /.test(t(e.textContent)));
-      if (!p) { out.push({reserved}); continue; }
+      if (!p) { out.push({reserved, broken}); continue; }
       const text = t(p.textContent);
       const full = p.querySelector('del');
       const disc = p.querySelector('[data-marker="delivery-item-condition-discount"]');
       const prices = (text.match(/\d[\d ]*(?= ?₽)/g) || []).map(num);
-      r = {text, reserved, full: full ? num(full.textContent) : (prices[0] ?? null), wallet: disc ? num(disc.textContent) : null};
+      r = {text, reserved, broken, full: full ? num(full.textContent) : (prices[0] ?? null), wallet: disc ? num(disc.textContent) : null};
     } catch (e) { r = {error: String(e)}; }
     out.push(r);
   }

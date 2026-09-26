@@ -32,6 +32,22 @@ SKIP = re.compile(r"\bдля\b|корпус|кейс|case|блок питани�
                   r"камер|дисплей|экран|монитор|кабель|адаптер|переходник|плата расширения|ssd|nvme|"
                   r"512\s*mb|1([.,]5)?\s*(gb|гб)\b|без платы", re.I)
 
+# How well a board suits LinuxCNC: (pattern, score, why). First match wins, so Orange Pi goes before "pi 5".
+CNC = [
+    (r"zero\s*(2w|3)", 1, "слабый вариант: нет Ethernet для платы Mesa, официального образа нет"),
+    (r"orange\s*pi\s*5", 3, "мощный (RK3588S), но официального образа LinuxCNC нет, RT-ядро собирать самому"),
+    (r"orange\s*pi\s*(3|4)", 2, "официального образа нет, RT-ядро собирать самому; для OpenBuilds Control по USB хватит"),
+    (r"\bpi\s*5|pi5", 5, "лучший выбор: есть официальный образ LinuxCNC с RT-ядром, самый быстрый"),
+    (r"\bpi\s*4|pi4", 4, "хороший выбор: официальный образ LinuxCNC с RT-ядром, проверен сообществом"),
+]
+
+
+def cnc(title):
+    for pat, score, why in CNC:
+        if re.search(pat, title, re.I):
+            return score, why
+    return 0, "модель не распознана"
+
 
 def wanted(title):
     return bool(BOARD.search(title)) and not SKIP.search(title)
@@ -68,12 +84,17 @@ def main():
         price = int(x["price"]) if str(x["price"]).isdigit() else None
         if price is None or cheapest is None or price + cheapest > MAX_TOTAL:
             continue
-        new.append(f"<b>{price + cheapest} ₽</b> ({price} + доставка {cheapest}) · "
-                   f"<a href=\"{x['url']}\">{html.escape(x['title'])}</a> · {x['city']}")
+        score, why = cnc(x["title"])
+        if s.get("broken"):
+            score, why = -1, "⚠️ по описанию не работает или продаётся как есть. " + why
+        new.append((score, price + cheapest,
+                    f"{'⭐' * max(score, 0) or '·'} <b>{price + cheapest} ₽</b> ({price} + доставка {cheapest}) · "
+                    f"<a href=\"{x['url']}\">{html.escape(x['title'])}</a> · {x['city']}\n{why}"))
     SEEN.parent.mkdir(exist_ok=True)
     SEEN.write_text(json.dumps(sorted(seen)))
     log.info("watch: %d matching, %d not seen before, %d new under %d ₽", len(found), len(fresh), len(new), MAX_TOTAL)
-    return new
+    # Best for LinuxCNC first, then cheapest.
+    return [t for _, _, t in sorted(new, key=lambda n: (-n[0], n[1]))]
 
 
 def notify(text):
@@ -94,4 +115,5 @@ if __name__ == "__main__":
         notify(f"⚠️ Мониторинг Авито упал: {html.escape(str(e))[:500]}")
         raise
     if new:
-        notify(f"Новые платы на Авито до {MAX_TOTAL} ₽ с доставкой, без резерва:\n\n" + "\n\n".join(new))
+        notify(f"Новые платы на Авито до {MAX_TOTAL} ₽ с доставкой, без резерва. "
+               "Сверху лучшие для LinuxCNC (⭐ — насколько подходит):\n\n" + "\n\n".join(new))
