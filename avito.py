@@ -69,7 +69,9 @@ SHIP_JS = r"""
       if (resp.status === 439 || /Доступ ограничен/.test(d.title)) { out.push({blocked: true}); break; }
       // Reserved by another buyer: the Buy button reads "Товар зарезервирован", page state has isReserved:true.
       const reserved = /isReserved[\\"]*:true/.test(h) || /Товар зарезервирован/.test(h);
-      const desc = t(d.querySelector('[data-marker="item-view/item-description"]')?.textContent);
+      // Avito swaps some Cyrillic letters in descriptions for Latin look-alikes ("нe cмог"); map them back.
+      const lat = {a: 'а', c: 'с', e: 'е', o: 'о', p: 'р', x: 'х', y: 'у', k: 'к', m: 'м', t: 'т', h: 'н', b: 'в'};
+      const desc = t(d.querySelector('[data-marker="item-view/item-description"]')?.textContent).toLowerCase().replace(/[aceopxykmthb]/g, c => lat[c]);
       const broken = /не работа|не запуска|не включа|не грузит|не загружа|на запчаст|как есть|неисправ/i.test(desc);
       const p = [...d.querySelectorAll('p')].find(e => /^Доставка (в|по) /.test(t(e.textContent)));
       if (!p) { out.push({reserved, broken}); continue; }
