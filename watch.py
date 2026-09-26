@@ -77,13 +77,16 @@ def main():
 
 
 def notify(text):
-    if "--print" in sys.argv or not tg.CONF.exists():
+    if "--print" in sys.argv:
         print(text)
     else:
         tg.send(text)
 
 
 if __name__ == "__main__":
+    if "--print" not in sys.argv and not tg.CONF.exists():
+        log.warning("watch: no telegram.json, skipped")  # else listings would be marked seen unseen
+        sys.exit("telegram.json missing, see tg.py")
     try:
         new = main()
     except Exception as e:
