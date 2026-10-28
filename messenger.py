@@ -223,6 +223,9 @@ def send(text, chat_id=None, item_url=None):
             tab.goto(item_url, "avito", wait_js="document.querySelector('[data-marker=\"messenger-button/button\"]')")
             # The page has two such buttons; the first sits in a sticky header off screen. Click the biggest.
             if not _click_biggest(tab, '[data-marker="messenger-button/button"]'):
+                # Logged out, the button turns into a link to #login (2026-10-28).
+                if tab.js("!!document.querySelector('[data-marker=\"messenger-button/link\"][href*=\"login\"]')"):
+                    return "Авито: вход не выполнен — войдите в Chrome на макмини. Ничего не отправлено"
                 h1 = " ".join((tab.js("document.querySelector('h1')?.textContent") or "").split())
                 return f"на странице объявления нет кнопки «Написать сообщение» (заголовок: «{h1}») — ничего не отправлено"
         if not _type_and_send(tab, text):
