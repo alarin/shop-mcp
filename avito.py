@@ -4,6 +4,7 @@ import re
 import time
 import urllib.parse
 
+import pics
 from cdp import tab_for
 from shoplog import dump, log
 
@@ -215,3 +216,45 @@ def item(url):
         lines.append("параметры: " + "; ".join(r["params"]))
     lines.append("\n" + r["description"])
     return "\n".join(lines)
+
+
+IMAGES_JS = r"""
+(() => {
+  const blocked = /Доступ ограничен|проблема с IP|captcha/i.test(
+    document.title + ' ' + (document.body?.innerText || '').slice(0, 600));
+  const loaders = window.__staticRouterHydrationData?.loaderData || {};
+  const item = Object.values(loaders).map(x => x?.buyerItem?.item).find(Boolean);
+  const best = sizes => sizes['1280x960'] || sizes['640x480'] ||
+    Object.entries(sizes).filter(([k, v]) => /^\d+x\d+$/.test(k) && typeof v === 'string')
+      .sort(([a], [b]) => parseInt(b) - parseInt(a))[0]?.[1];
+  let urls = (item?.imageUrls || []).map(best).filter(Boolean);
+  // Older layouts: stay inside the main gallery, never collect recommendations or avatars.
+  if (!urls.length) urls = [...document.querySelectorAll('[data-marker="item-view/main-gallery"] img')]
+    .map(e => e.currentSrc || e.src).filter(Boolean);
+  return {blocked, title: item?.title || document.querySelector('h1')?.textContent || '',
+          url: location.href.split('?')[0], urls: [...new Set(urls)]};
+})()
+"""
+
+
+def images(url, limit=6):
+    """Download the listing gallery as MCP images, in the seller's order."""
+    if not 1 <= limit <= 20:
+        raise ValueError("limit должен быть от 1 до 20")
+    url = urllib.parse.urljoin("https://www.avito.ru/", url)
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme != "https" or parsed.hostname not in ("avito.ru", "www.avito.ru", "m.avito.ru"):
+        raise ValueError("Нужна ссылка на объявление https://www.avito.ru/…")
+    tab = tab_for("avito.ru")
+    try:
+        tab.goto(url, "avito", wait_js="document.querySelector('h1')")
+        r = tab.js(IMAGES_JS)
+    finally:
+        tab.close()
+    if r["blocked"]:
+        return [f"Авито показал блокировку или капчу: {url}. Нужно пройти её через Screen Sharing на макмини."]
+    gallery = [(f"#{i}", u) for i, u in enumerate(r["urls"], 1)]
+    head = f"{r['title']}\n{r['url']}\nфотографий: {len(gallery)}; показываю {min(limit, len(gallery))}"
+    if not gallery:
+        return [head + "\nФотографии не найдены: объявление недоступно, без фото или изменился формат галереи."]
+    return pics.fetch(head, gallery, limit)
